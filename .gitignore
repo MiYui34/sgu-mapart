@@ -1,0 +1,11 @@
+node_modules
+dist
+client/node_modules
+client/build
+client/dist
+.env
+server/uploads/previews/*
+server/uploads/litematics/*
+!server/uploads/previews/.gitkeep
+!server/uploads/litematics/.gitkeep
+*.log
