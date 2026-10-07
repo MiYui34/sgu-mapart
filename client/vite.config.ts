@@ -12,7 +12,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port: 5173,
+    port: 6789,
+    strictPort: true,
     proxy: {
       '/api': { target: 'http://localhost:3011', changeOrigin: true },
       '/uploads': { target: 'http://localhost:3011', changeOrigin: true },

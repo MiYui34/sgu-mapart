@@ -142,6 +142,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; }
   background: rgba(0, 0, 0, 0.28);
   border-radius: 16px;
   touch-action: none;
+  overscroll-behavior: contain;
 }
 .world-host { position: relative; overflow: hidden; }
 .world-host canvas { width: 100% !important; height: 100% !important; display: block; }
@@ -154,9 +155,21 @@ canvas.pixels {
 }
 .segment { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .segment button[aria-pressed="true"] { background: var(--text-primary); color: var(--bg-primary); }
-.slider-row { display: grid; grid-template-columns: 72px 1fr 42px; gap: 0.4rem; align-items: center; font-size: 0.82rem; color: var(--text-secondary); }
+.slider-row { display: grid; grid-template-columns: 52px 26px 1fr 26px 40px; gap: 0.3rem; align-items: center; font-size: 0.82rem; color: var(--text-secondary); }
+.nudge {
+  width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--glass-border); border-radius: 6px;
+  background: transparent; color: var(--text-primary);
+  cursor: pointer; font: inherit; line-height: 1;
+}
+.nudge:disabled { opacity: 0.35; cursor: not-allowed; }
+.select-stepper, .size-stepper { display: flex; gap: 0.3rem; align-items: center; }
+.select-stepper .glass-input { flex: 1; min-width: 0; width: auto; }
+.size-stepper .glass-input { width: 52px; text-align: center; padding-left: 0.35rem; padding-right: 0.35rem; }
+.color-row { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--text-secondary); }
 input[type="range"] { width: 100%; accent-color: #e4e4e7; }
 .materials { display: grid; grid-template-columns: 1fr auto auto; gap: 0.25rem 0.6rem; font-size: 0.82rem; color: var(--text-secondary); }
+.materials .pack { white-space: nowrap; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 0.35rem; }
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
 .work-card { overflow: hidden; display: flex; flex-direction: column; }
@@ -175,6 +188,13 @@ input[type="range"] { width: 100%; accent-color: #e4e4e7; }
   position: absolute; top: 12px; z-index: 2; font-size: 0.75rem;
   background: rgba(0,0,0,0.45); padding: 0.2rem 0.45rem; border-radius: 999px;
 }
+.guide { display: flex; flex-direction: column; gap: 0.85rem; max-width: 760px; }
+.guide article { padding: 1rem 1.15rem; }
+.guide h2 { margin-bottom: 0.35rem; }
+.guide h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+.guide p, .guide li { color: var(--text-secondary); line-height: 1.65; font-size: 0.92rem; }
+.guide ul { margin: 0.35rem 0 0 1.15rem; }
+.guide a, .stack a { color: var(--text-primary); }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: grid; place-items: center; z-index: 40; padding: 1rem; }
 .modal-panel { width: min(440px, 100%); background: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.4rem; }
 

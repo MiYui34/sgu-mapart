@@ -1,9 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { EditorSessionProvider } from './contexts/EditorSession'
 import LoginForm from './components/auth/LoginForm'
 import RegisterForm from './components/auth/RegisterForm'
 import InvitationManager from './components/admin/InvitationManager'
 import EditorPage from './components/editor/EditorPage'
+import GuidePage from './components/guide/GuidePage'
 import MarketPage from './components/market/MarketPage'
 import WorkDetail from './components/market/WorkDetail'
 import { Footer } from './components/layout/Navbar'
@@ -26,15 +28,18 @@ export default function App() {
   return (
     <NotificationProvider>
       <BrowserRouter>
+        <EditorSessionProvider>
         <Routes>
           <Route path="/login" element={<AuthScreen><LoginForm /></AuthScreen>} />
           <Route path="/register" element={<AuthScreen><RegisterForm /></AuthScreen>} />
           <Route path="/admin/invitations" element={<InvitationManager />} />
           <Route path="/" element={<EditorPage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/market" element={<MarketPage />} />
           <Route path="/market/:id" element={<WorkDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </EditorSessionProvider>
       </BrowserRouter>
     </NotificationProvider>
   )

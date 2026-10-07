@@ -55,6 +55,17 @@ export const LITEMATIC_VERSION = 6
 export const MAP_SIZE = 128
 export const MAX_MAPS = 8
 
-export function woolCount(carpetCount: number): number {
-  return Math.ceil((carpetCount * 2) / 3)
+export const CARPET_GROUP = 64
+export const CARPET_BOX_GROUPS = 27
+export const CARPET_BOX = CARPET_GROUP * CARPET_BOX_GROUPS
+
+export function formatCarpetPack(count: number): string {
+  const boxes = Math.floor(count / CARPET_BOX)
+  const groups = Math.floor((count % CARPET_BOX) / CARPET_GROUP)
+  const loose = count % CARPET_GROUP
+  const parts: string[] = []
+  if (boxes > 0) parts.push(`${boxes} 盒`)
+  if (groups > 0) parts.push(`${groups} 组`)
+  if (loose > 0 || parts.length === 0) parts.push(`${loose} 个`)
+  return parts.join(' ')
 }

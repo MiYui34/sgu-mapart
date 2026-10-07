@@ -47,6 +47,8 @@ interface Props {
 export default function CropStage({ image, mapsX, mapsY, crop, selected, onCrop, onSelect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drag = useRef<{ x: number; y: number; crop: CropRect; moved: boolean } | null>(null)
+  const cropRef = useRef(crop)
+  cropRef.current = crop
 
   const draw = () => {
     const canvas = canvasRef.current
@@ -100,6 +102,37 @@ export default function CropStage({ image, mapsX, mapsY, crop, selected, onCrop,
     return () => observer.disconnect()
   })
 
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const current = cropRef.current
+      const factor = event.deltaY > 0 ? 1.08 : 0.92
+      const aspect = mapsX / mapsY
+      let w = current.w * factor
+      let h = w / aspect
+      if (w > image.width || h > image.height) {
+        if (image.width / image.height > aspect) {
+          h = image.height
+          w = h * aspect
+        } else {
+          w = image.width
+          h = w / aspect
+        }
+      }
+      if (w < 16) {
+        w = 16
+        h = w / aspect
+      }
+      const cx = current.x + current.w / 2
+      const cy = current.y + current.h / 2
+      onCrop(clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h }, image))
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
+  }, [image, mapsX, mapsY, onCrop])
+
   const cellAt = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return null
@@ -144,29 +177,6 @@ export default function CropStage({ image, mapsX, mapsY, crop, selected, onCrop,
           const index = cellAt(event)
           onSelect(index === null || selected === index ? null : index)
         }
-      }}
-      onWheel={(event) => {
-        event.preventDefault()
-        const factor = event.deltaY > 0 ? 1.08 : 0.92
-        const aspect = mapsX / mapsY
-        let w = crop.w * factor
-        let h = w / aspect
-        if (w > image.width || h > image.height) {
-          if (image.width / image.height > aspect) {
-            h = image.height
-            w = h * aspect
-          } else {
-            w = image.width
-            h = w / aspect
-          }
-        }
-        if (w < 16) {
-          w = 16
-          h = w / aspect
-        }
-        const cx = crop.x + crop.w / 2
-        const cy = crop.y + crop.h / 2
-        onCrop(clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h }, image))
       }}
     />
   )

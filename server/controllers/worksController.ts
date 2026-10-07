@@ -6,7 +6,7 @@ import type { Response } from 'express'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2'
 import { pool } from '../config/database.js'
 import type { AuthenticatedRequest } from '../types.js'
-import { inspectLitematic } from '../../shared/mapart/litematic.js'
+import { inspectMapartFile } from '../../shared/mapart/bundle.js'
 import { MAX_MAPS } from '../../shared/mapart/palette.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -38,6 +38,7 @@ function publicWork(row: WorkPacket) {
     mapsX: row.maps_x,
     mapsY: row.maps_y,
     previewUrl: `/uploads/${row.preview_path.replace(/\\/g, '/')}`,
+    fileExt: row.litematic_path.endsWith('.zip') ? 'zip' : 'litematic',
     downloads: row.downloads,
     createdAt: new Date(row.created_at).toISOString(),
     author: row.username,
@@ -105,13 +106,9 @@ const worksController = {
       res.status(400).json({ error: '地图张数超出范围' })
       return
     }
-    const inspected = inspectLitematic(Uint8Array.from(litematic.buffer))
+    const inspected = inspectMapartFile(Uint8Array.from(litematic.buffer), mapsX, mapsY)
     if (!inspected.ok) {
       res.status(400).json({ error: inspected.error })
-      return
-    }
-    if (inspected.width !== mapsX * 128 || inspected.depth !== mapsY * 128) {
-      res.status(400).json({ error: '投影尺寸和地图张数不一致' })
       return
     }
 
@@ -125,11 +122,11 @@ const worksController = {
 
     const id = randomUUID()
     const previewName = `previews/${id}.png`
-    const litematicName = `litematics/${id}.litematic`
+    const litematicName = `litematics/${id}.${inspected.zip ? 'zip' : 'litematic'}`
     await fs.mkdir(path.join(uploadRoot, 'previews'), { recursive: true })
     await fs.mkdir(path.join(uploadRoot, 'litematics'), { recursive: true })
     await fs.writeFile(path.join(uploadRoot, 'previews', `${id}.png`), preview.buffer)
-    await fs.writeFile(path.join(uploadRoot, 'litematics', `${id}.litematic`), litematic.buffer)
+    await fs.writeFile(path.join(uploadRoot, litematicName), litematic.buffer)
 
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO works
@@ -176,7 +173,8 @@ const worksController = {
     const work = rows[0]
     await pool.query('UPDATE works SET downloads = downloads + 1 WHERE id = ?', [work.id])
     const filePath = path.join(uploadRoot, 'litematics', path.basename(work.litematic_path))
-    res.download(filePath, `${work.title}.litematic`)
+    const ext = work.litematic_path.endsWith('.zip') ? '.zip' : '.litematic'
+    res.download(filePath, `${work.title}${ext}`)
   },
 }
 

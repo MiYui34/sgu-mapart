@@ -50,7 +50,7 @@ export default function WorkDetail() {
       <div className="toolbar" style={{ marginBottom: '0.8rem' }}>
         <button className="btn secondary" type="button" aria-pressed={mode === 'map'} onClick={() => setMode('map')}>地图</button>
         <button className="btn secondary" type="button" aria-pressed={mode === 'world'} onClick={() => setMode('world')}>世界</button>
-        <a className="btn" href={`/api/works/${work.id}/download`}>下载 .litematic</a>
+        <a className="btn" href={`/api/works/${work.id}/download`}>下载 .{work.fileExt === 'zip' ? 'zip' : 'litematic'}</a>
         {mine && (
           <button className="btn danger" type="button" onClick={async () => {
             if (!window.confirm('下架这件作品？')) return
@@ -60,8 +60,8 @@ export default function WorkDetail() {
         )}
       </div>
       <p className="muted" style={{ marginBottom: '0.8rem' }}>
-        {work.author} · {work.mapsX}×{work.mapsY} 张 · {work.downloads} 次下载
-        {work.tags.length > 0 ? ` · ${work.tags.join(' / ')}` : ''}
+        {work.author}，{work.mapsX}×{work.mapsY} 张，{work.downloads} 次下载
+        {work.tags.length > 0 ? `，${work.tags.join(' / ')}` : ''}
       </p>
       {work.description && <p style={{ marginBottom: '1rem' }}>{work.description}</p>}
       <div className="glass-panel stage">

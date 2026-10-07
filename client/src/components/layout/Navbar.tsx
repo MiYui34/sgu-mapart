@@ -29,6 +29,7 @@ export default function Navbar() {
       </Link>
       <nav className="nav-links">
         <Link to="/">做图</Link>
+        <Link to="/guide">说明</Link>
         <Link to="/market">市场</Link>
         {user?.role === 'admin' && (
           <Link to="/admin/invitations"><KeyRound size={15} style={{ verticalAlign: '-2px' }} /> 邀请码</Link>

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ALGORITHM_IDS, ALGORITHM_LABELS, type AlgorithmId } from '@shared/mapart/dither'
-import { buildLitematic } from '@shared/mapart/litematic'
-import { CARPETS, MAP_SIZE, MAX_MAPS, woolCount } from '@shared/mapart/palette'
-import type { ProcessRequest, ProcessResult } from '@shared/mapart/process'
+import { packageMapart } from '@shared/mapart/bundle'
+import { CARPETS, formatCarpetPack, MAP_SIZE, MAX_MAPS } from '@shared/mapart/palette'
 import { currentUser } from '../../lib/api'
+import { useEditorSession } from '../../contexts/EditorSession'
 import { Shell } from '../layout/Navbar'
-import { useNotification } from '../../contexts/NotificationContext'
-import CropStage, { clampCrop, initialCrop, type CropRect } from './CropStage'
+import CropStage from './CropStage'
 import CompareView from './CompareView'
 import WorldView from './WorldView'
 import PublishModal from './PublishModal'
@@ -25,127 +24,16 @@ function sliceMap(pixels: Uint8ClampedArray, fullWidth: number, index: number, m
   return out
 }
 
-function extractCrop(image: HTMLImageElement, crop: CropRect) {
-  const sw = Math.max(1, Math.round(crop.w))
-  const sh = Math.max(1, Math.round(crop.h))
-  const scale = Math.min(1, 1600 / Math.max(sw, sh))
-  const width = Math.max(1, Math.round(sw * scale))
-  const height = Math.max(1, Math.round(sh * scale))
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) throw new Error('无法读取图片')
-  ctx.drawImage(image, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height)
-  return { pixels: ctx.getImageData(0, 0, width, height).data, width, height }
-}
-
 export default function EditorPage() {
   const navigate = useNavigate()
-  const notify = useNotification()
-  const [image, setImage] = useState<HTMLImageElement | null>(null)
-  const [mapsX, setMapsX] = useState(1)
-  const [mapsY, setMapsY] = useState(1)
-  const [crop, setCrop] = useState<CropRect | null>(null)
-  const [selected, setSelected] = useState<number | null>(null)
-  const [stage, setStage] = useState<Stage>('crop')
-  const [brightness, setBrightness] = useState(100)
-  const [contrast, setContrast] = useState(100)
-  const [saturation, setSaturation] = useState(100)
-  const [hue, setHue] = useState(0)
-  const [gamma, setGamma] = useState(1)
-  const [background, setBackground] = useState('#151515')
-  const [resize, setResize] = useState<'nearest' | 'lanczos'>('lanczos')
-  const [distance, setDistance] = useState<'oklab' | 'rgb'>('oklab')
-  const [algorithm, setAlgorithm] = useState<AlgorithmId>('floyd-steinberg')
-  const [ditherStrength, setDitherStrength] = useState(1)
-  const [result, setResult] = useState<ProcessResult | null>(null)
-  const [busy, setBusy] = useState(false)
   const [publishing, setPublishing] = useState(false)
-
-  const loadUrl = (url: string) => {
-    const next = new Image()
-    next.onload = () => {
-      setImage(next)
-      setCrop(initialCrop(next, mapsX, mapsY))
-      setSelected(null)
-      setStage('crop')
-    }
-    next.src = url
-  }
-
-  const onFile = (file: File | undefined) => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    const next = new Image()
-    next.onload = () => {
-      setImage(next)
-      setCrop(initialCrop(next, mapsX, mapsY))
-      setSelected(null)
-      setStage('crop')
-      URL.revokeObjectURL(url)
-    }
-    next.src = url
-  }
-
-  useEffect(() => {
-    if (!image || !crop) return
-    const aspect = mapsX / mapsY
-    const cx = crop.x + crop.w / 2
-    const cy = crop.y + crop.h / 2
-    let w = crop.w
-    let h = w / aspect
-    if (h > image.height) {
-      h = image.height
-      w = h * aspect
-    }
-    if (w > image.width) {
-      w = image.width
-      h = w / aspect
-    }
-    setCrop(clampCrop({ x: cx - w / 2, y: cy - h / 2, w, h }, image))
-    setSelected(null)
-    // 只在张数变化时重算裁剪比例。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapsX, mapsY])
-
-  const request = useMemo<ProcessRequest | null>(() => {
-    if (!image || !crop) return null
-    const extracted = extractCrop(image, crop)
-    return {
-      pixels: extracted.pixels,
-      width: extracted.width,
-      height: extracted.height,
-      outWidth: mapsX * MAP_SIZE,
-      outHeight: mapsY * MAP_SIZE,
-      resize,
-      adjust: { brightness, contrast, saturation, hue, gamma, background },
-      distance,
-      algorithm,
-      ditherStrength,
-    }
-  }, [image, crop, mapsX, mapsY, resize, brightness, contrast, saturation, hue, gamma, background, distance, algorithm, ditherStrength])
-
-  useEffect(() => {
-    if (!request) return
-    const worker = new Worker(new URL('../../mapart/worker.ts', import.meta.url), { type: 'module' })
-    const timer = window.setTimeout(() => {
-      setBusy(true)
-      worker.postMessage(request)
-    }, 120)
-    worker.onmessage = (event: MessageEvent<ProcessResult>) => {
-      setResult(event.data)
-      setBusy(false)
-    }
-    worker.onerror = () => {
-      setBusy(false)
-      notify('生成失败', 'error')
-    }
-    return () => {
-      window.clearTimeout(timer)
-      worker.terminate()
-    }
-  }, [request, notify])
+  const session = useEditorSession()
+  const {
+    image, fileName, mapsX, mapsY, crop, selected, stage, brightness, contrast, saturation, hue, gamma, background,
+    resize, distance, algorithm, ditherStrength, result, builtFrom, busy, fingerprint,
+    setMapsX, setMapsY, setCrop, setSelected, setStage, setBrightness, setContrast, setSaturation, setHue, setGamma,
+    setBackground, setResize, setDistance, setAlgorithm, setDitherStrength, onFile, generate,
+  } = session
 
   const shown = useMemo(() => {
     if (!result) return null
@@ -161,14 +49,30 @@ export default function EditorPage() {
   const download = () => {
     if (!result) return
     const user = currentUser()
-    const bytes = new Uint8Array(buildLitematic(result.indices, result.width, result.height, user?.username ?? '访客', '地毯地图画'))
-    const blob = new Blob([bytes], { type: 'application/octet-stream' })
+    const packed = packageMapart(result.indices, result.width, result.height, user?.username ?? '访客', '地毯地图画')
+    const bytes = new Uint8Array(packed.bytes)
+    const blob = new Blob([bytes], { type: packed.zip ? 'application/zip' : 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'carpet-mapart.litematic'
+    link.download = packed.filename
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  const resetParameters = () => {
+    setMapsX(1)
+    setMapsY(1)
+    setBrightness(100)
+    setContrast(100)
+    setSaturation(100)
+    setHue(0)
+    setGamma(1)
+    setBackground('#151515')
+    setResize('area')
+    setDistance('oklab')
+    setAlgorithm('floyd-steinberg')
+    setDitherStrength(1)
   }
 
   const settings = {
@@ -182,60 +86,69 @@ export default function EditorPage() {
         <aside className="glass-panel stack">
           <div>
             <label className="form-label">图片</label>
-            <input className="glass-input" type="file" accept="image/*" onChange={(event) => onFile(event.target.files?.[0])} />
-            <button className="btn secondary" style={{ marginTop: 8 }} type="button" onClick={() => loadUrl('/sample.svg')}>载入示例</button>
+            <input className="glass-input" type="file" accept="image/*" onChange={(event) => {
+              onFile(event.target.files?.[0])
+              event.target.value = ''
+            }} />
+            {fileName && <p className="muted">{fileName}</p>}
           </div>
           <div className="toolbar">
-            <label className="muted">宽
-              <input className="glass-input" style={{ width: 70, marginLeft: 6 }} type="number" min={1} max={MAX_MAPS} value={mapsX} onChange={(e) => setMapsX(Math.min(MAX_MAPS, Math.max(1, Number(e.target.value) || 1)))} />
-            </label>
-            <label className="muted">高
-              <input className="glass-input" style={{ width: 70, marginLeft: 6 }} type="number" min={1} max={MAX_MAPS} value={mapsY} onChange={(e) => setMapsY(Math.min(MAX_MAPS, Math.max(1, Number(e.target.value) || 1)))} />
-            </label>
+            <SizeStepper label="宽" value={mapsX} onChange={setMapsX} />
+            <SizeStepper label="高" value={mapsY} onChange={setMapsY} />
           </div>
-          <p className="muted">{mapsX}×{mapsY} 张 · {mapsX * MAP_SIZE}×{mapsY * MAP_SIZE} 格{busy ? ' · 生成中' : ''}</p>
+          <p className="muted">{mapsX}×{mapsY} 张，{mapsX * MAP_SIZE}×{mapsY * MAP_SIZE} 格</p>
           <Slider label="亮度" min={0} max={200} value={brightness} onChange={setBrightness} />
           <Slider label="对比度" min={0} max={200} value={contrast} onChange={setContrast} />
           <Slider label="饱和度" min={0} max={200} value={saturation} onChange={setSaturation} />
           <Slider label="色相" min={-180} max={180} value={hue} onChange={setHue} />
           <Slider label="伽马" min={20} max={300} value={Math.round(gamma * 100)} onChange={(value) => setGamma(value / 100)} display={gamma.toFixed(2)} />
-          <label className="slider-row">背景 <input type="color" value={background} onChange={(e) => setBackground(e.target.value)} /> <span /></label>
-          <label className="form-label">缩放
-            <select className="glass-input" value={resize} onChange={(e) => setResize(e.target.value as 'nearest' | 'lanczos')}>
-              <option value="lanczos">Lanczos</option>
-              <option value="nearest">最近邻</option>
-            </select>
-          </label>
-          <label className="form-label">色差
-            <select className="glass-input" value={distance} onChange={(e) => setDistance(e.target.value as 'oklab' | 'rgb')}>
-              <option value="oklab">OKLab</option>
-              <option value="rgb">RGB</option>
-            </select>
-          </label>
-          <label className="form-label">算法
-            <select className="glass-input" value={algorithm} onChange={(e) => setAlgorithm(e.target.value as AlgorithmId)}>
-              {ALGORITHM_IDS.map((id) => <option key={id} value={id}>{ALGORITHM_LABELS[id]}</option>)}
-            </select>
-          </label>
+          <label className="color-row">背景 <input type="color" value={background} aria-label="背景" onChange={(e) => setBackground(e.target.value)} /></label>
+          <ChoiceStepper
+            label="缩放"
+            value={resize}
+            options={[
+              { value: 'area', label: '区域平均' },
+              { value: 'lanczos', label: 'Lanczos' },
+              { value: 'nearest', label: '最近邻' },
+            ]}
+            onChange={(value) => setResize(value as 'area' | 'lanczos' | 'nearest')}
+          />
+          <ChoiceStepper
+            label="色差"
+            value={distance}
+            options={[{ value: 'oklab', label: 'OKLab' }, { value: 'rgb', label: 'RGB' }]}
+            onChange={(value) => setDistance(value as 'oklab' | 'rgb')}
+          />
+          <ChoiceStepper
+            label="算法"
+            value={algorithm}
+            options={ALGORITHM_IDS.map((id) => ({ value: id, label: ALGORITHM_LABELS[id] }))}
+            onChange={(value) => setAlgorithm(value as AlgorithmId)}
+          />
           <Slider label="抖动" min={0} max={100} value={Math.round(ditherStrength * 100)} onChange={(value) => setDitherStrength(value / 100)} display={ditherStrength.toFixed(2)} />
+          <button className="btn secondary" type="button" onClick={resetParameters} style={{ width: '100%' }}>重置参数</button>
+          <button className="btn" type="button" disabled={!image || !crop || busy} onClick={generate} style={{ width: '100%' }}>
+            {busy ? '生成中' : '生成地图画'}
+          </button>
+          {result && builtFrom !== fingerprint && <p className="muted">参数已改，需要重新生成</p>}
           <div className="materials">
             {result && CARPETS.map((carpet) => result.counts[carpet.id] > 0 ? (
               <span key={carpet.block} style={{ display: 'contents' }}>
-                <span><i className="swatch" style={{ background: `rgb(${carpet.rgb.join(',')})` }} />{carpet.name}</span>
+                <span><i className="swatch" style={{ background: `rgb(${carpet.base.join(',')})` }} />{carpet.name}</span>
                 <span>{result.counts[carpet.id]}</span>
-                <span>羊毛 {woolCount(result.counts[carpet.id])}</span>
+                <span className="pack">{formatCarpetPack(result.counts[carpet.id])}</span>
               </span>
             ) : null)}
           </div>
-          <button className="btn" type="button" disabled={!result} onClick={download}>下载 .litematic</button>
-          <button className="btn secondary" type="button" disabled={!result} onClick={() => {
+          <button className="btn" type="button" disabled={!result} onClick={download}>{mapsX * mapsY > 1 ? '下载 .zip' : '下载 .litematic'}</button>
+          <button className="btn secondary" type="button" disabled={!result || builtFrom !== fingerprint} onClick={() => {
             if (!localStorage.getItem('jwt_token')) {
               navigate('/login')
               return
             }
             setPublishing(true)
           }}>上架到市场</button>
-          <p className="muted">Minecraft 26.1+ · 仅地毯 · 访客可本地下载</p>
+          <p className="muted">适用于 Minecraft 26.1 及以上。<Link to="/guide">参数说明</Link></p>
         </aside>
         <section className="glass-panel stage">
           <div className="segment">
@@ -246,7 +159,8 @@ export default function EditorPage() {
             ))}
             {selected !== null && <span className="muted">正在看第 {selected + 1} 张</span>}
           </div>
-          {!image || !crop ? <p className="muted">上传图片，或载入示例。拖动底图，滚轮缩放，网格按 128 格对齐。</p> : null}
+          {!image || !crop ? <p className="muted">上传图片，调整参数后点击生成地图画。拖动底图，滚轮缩放，网格按 128 格对齐。</p> : null}
+          {image && crop && !shown && stage !== 'crop' ? <p className="muted">点击生成地图画后，可在这里查看结果。</p> : null}
           {image && crop && stage === 'crop' && (
             <CropStage image={image} mapsX={mapsX} mapsY={mapsY} crop={crop} selected={selected} onCrop={setCrop} onSelect={setSelected} />
           )}
@@ -268,6 +182,10 @@ export default function EditorPage() {
   )
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
 function Slider({ label, min, max, value, display, onChange }: {
   label: string
   min: number
@@ -277,10 +195,42 @@ function Slider({ label, min, max, value, display, onChange }: {
   onChange: (value: number) => void
 }) {
   return (
-    <label className="slider-row">
-      {label}
-      <input type="range" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+    <div className="slider-row">
+      <span>{label}</span>
+      <button className="nudge" type="button" aria-label={`${label}减小`} disabled={value <= min} onClick={() => onChange(clamp(value - 1, min, max))}>-</button>
+      <input type="range" min={min} max={max} value={value} aria-label={label} onChange={(event) => onChange(Number(event.target.value))} />
+      <button className="nudge" type="button" aria-label={`${label}增大`} disabled={value >= max} onClick={() => onChange(clamp(value + 1, min, max))}>+</button>
       <span>{display ?? value}</span>
+    </div>
+  )
+}
+
+function SizeStepper({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <label className="muted size-stepper">{label}
+      <button className="nudge" type="button" aria-label={`${label}减一`} disabled={value <= 1} onClick={() => onChange(value - 1)}>-</button>
+      <input className="glass-input" type="number" min={1} max={MAX_MAPS} value={value} aria-label={label} onChange={(event) => onChange(clamp(Number(event.target.value) || 1, 1, MAX_MAPS))} />
+      <button className="nudge" type="button" aria-label={`${label}加一`} disabled={value >= MAX_MAPS} onClick={() => onChange(value + 1)}>+</button>
+    </label>
+  )
+}
+
+function ChoiceStepper({ label, value, options, onChange }: {
+  label: string
+  value: string
+  options: Array<{ value: string; label: string }>
+  onChange: (value: string) => void
+}) {
+  const index = Math.max(0, options.findIndex((option) => option.value === value))
+  return (
+    <label className="form-label">{label}
+      <div className="select-stepper">
+        <button className="nudge" type="button" aria-label={`${label}上一项`} disabled={index <= 0} onClick={() => onChange(options[index - 1].value)}>-</button>
+        <select className="glass-input" value={value} aria-label={label} onChange={(event) => onChange(event.target.value)}>
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <button className="nudge" type="button" aria-label={`${label}下一项`} disabled={index >= options.length - 1} onClick={() => onChange(options[index + 1].value)}>+</button>
+      </div>
     </label>
   )
 }

@@ -25,6 +25,7 @@ export interface WorkSummary {
   mapsX: number
   mapsY: number
   previewUrl: string
+  fileExt: 'zip' | 'litematic' | string
   downloads: number
   createdAt: string
   author: string

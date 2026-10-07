@@ -1,6 +1,6 @@
 import { adjustImage, type AdjustOptions } from './adjust.js'
 import { countCarpets, quantize, type AlgorithmId, type DistanceMode } from './dither.js'
-import { resizeImage } from './resize.js'
+import { resizeImage, type ResizeMode } from './resize.js'
 
 export interface ProcessRequest {
   pixels: Uint8ClampedArray
@@ -8,7 +8,7 @@ export interface ProcessRequest {
   height: number
   outWidth: number
   outHeight: number
-  resize: 'nearest' | 'lanczos'
+  resize: ResizeMode
   adjust: AdjustOptions
   distance: DistanceMode
   algorithm: AlgorithmId

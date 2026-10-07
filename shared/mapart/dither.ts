@@ -103,35 +103,43 @@ function rgbToOklab(r: number, g: number, b: number): [number, number, number] {
   ]
 }
 
-const CARPET_LAB = CARPETS.map((c) => rgbToOklab(c.rgb[0], c.rgb[1], c.rgb[2]))
+const CARPET_LAB = CARPETS.map((c) => rgbToOklab(c.base[0], c.base[1], c.base[2]))
+const CARPET_BASE = CARPETS.map((carpet) => carpet.base)
+
+/** 亮度权重再低一些，高光才不会为了贴近亮度整片变成白色。灰调的色差仍大于这个权重下的亮度差。 */
+const OKLAB_LIGHTNESS_WEIGHT = 0.12
 
 export type DistanceMode = 'oklab' | 'rgb'
 
-export function nearestCarpet(r: number, g: number, b: number, distance: DistanceMode): number {
+function nearestIn(
+  r: number,
+  g: number,
+  b: number,
+  palette: Array<[number, number, number]>,
+  lightnessWeight = 1,
+): number {
   let best = 0
   let bestD = Infinity
-  const lab = distance === 'oklab' ? rgbToOklab(r, g, b) : null
-  for (let i = 0; i < CARPETS.length; i++) {
-    let d: number
-    if (lab) {
-      const p = CARPET_LAB[i]
-      const dl = lab[0] - p[0]
-      const da = lab[1] - p[1]
-      const db = lab[2] - p[2]
-      d = dl * dl + da * da + db * db
-    } else {
-      const p = CARPETS[i].rgb
-      const dr = r - p[0]
-      const dg = g - p[1]
-      const db = b - p[2]
-      d = dr * dr + dg * dg + db * db
-    }
+  for (let i = 0; i < palette.length; i++) {
+    const p = palette[i]
+    const dr = r - p[0]
+    const dg = g - p[1]
+    const db = b - p[2]
+    const d = lightnessWeight * dr * dr + dg * dg + db * db
     if (d < bestD) {
       bestD = d
       best = i
     }
   }
   return best
+}
+
+export function nearestCarpet(r: number, g: number, b: number, distance: DistanceMode): number {
+  if (distance === 'oklab') {
+    const lab = rgbToOklab(r, g, b)
+    return nearestIn(lab[0], lab[1], lab[2], CARPET_LAB, OKLAB_LIGHTNESS_WEIGHT)
+  }
+  return nearestIn(r, g, b, CARPET_BASE)
 }
 
 /** 16×16 空隙聚类式阈值，模块加载时算一次。 */
@@ -198,39 +206,57 @@ export function quantize(
   const strength = Math.min(1, Math.max(0, options.ditherStrength))
   const kernel = KERNELS[options.algorithm]
   const ordered = options.algorithm === 'bayer-4' || options.algorithm === 'bayer-8' || options.algorithm === 'blue-noise'
+  const perceptual = options.distance === 'oklab'
+  const palette = perceptual ? CARPET_LAB : CARPET_BASE
   const buf = new Float32Array(count * 3)
   for (let i = 0; i < count; i++) {
-    buf[i * 3] = rgba[i * 4]
-    buf[i * 3 + 1] = rgba[i * 4 + 1]
-    buf[i * 3 + 2] = rgba[i * 4 + 2]
+    if (perceptual) {
+      const lab = rgbToOklab(rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2])
+      buf[i * 3] = lab[0]
+      buf[i * 3 + 1] = lab[1]
+      buf[i * 3 + 2] = lab[2]
+    } else {
+      buf[i * 3] = rgba[i * 4]
+      buf[i * 3 + 1] = rgba[i * 4 + 1]
+      buf[i * 3 + 2] = rgba[i * 4 + 2]
+    }
   }
 
   for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
+    const leftToRight = y % 2 === 0
+    for (let step = 0; step < width; step++) {
+      const x = leftToRight ? step : width - 1 - step
+      const direction = leftToRight ? 1 : -1
       const i = y * width + x
       let r = buf[i * 3]
       let g = buf[i * 3 + 1]
       let b = buf[i * 3 + 2]
       if (ordered && strength > 0) {
-        const bias = orderedThreshold(options.algorithm, x, y) * 64 * strength
-        r += bias
-        g += bias
-        b += bias
+        const threshold = orderedThreshold(options.algorithm, x, y) * strength
+        if (perceptual) r += threshold * 0.12
+        else {
+          const bias = threshold * 28
+          r += bias
+          g += bias
+          b += bias
+        }
       }
-      const chosen = nearestCarpet(r, g, b, options.distance)
+      const chosen = nearestIn(r, g, b, palette, perceptual ? OKLAB_LIGHTNESS_WEIGHT : 1)
       indices[i] = chosen
-      const pr = CARPETS[chosen].rgb
+      const pr = CARPETS[chosen].base
       const pi = i * 4
       preview[pi] = pr[0]
       preview[pi + 1] = pr[1]
       preview[pi + 2] = pr[2]
       preview[pi + 3] = 255
       if (!kernel || strength === 0) continue
-      const er = (buf[i * 3] - pr[0]) * strength
-      const eg = (buf[i * 3 + 1] - pr[1]) * strength
-      const eb = (buf[i * 3 + 2] - pr[2]) * strength
+      const target = palette[chosen]
+      const lightnessScale = perceptual ? strength + (1 - strength) * 0.75 : strength
+      const er = (buf[i * 3] - target[0]) * lightnessScale
+      const eg = (buf[i * 3 + 1] - target[1]) * strength
+      const eb = (buf[i * 3 + 2] - target[2]) * strength
       for (const [dx, dy, weight] of kernel.taps) {
-        const nx = x + dx
+        const nx = x + dx * direction
         const ny = y + dy
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
         const ni = (ny * width + nx) * 3

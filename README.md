@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-前端默认在 <http://localhost:5173>，接口在 <http://localhost:3011>。
+前端默认在 <http://localhost:6789>，接口在 <http://localhost:3011>。
 
 首次创建的管理员用户名是 `admin`，密码来自 `.env` 里的 `ADMIN_PASSWORD`（示例为 `admin123`）。用这个账号在「邀请码」页生成注册码。
 

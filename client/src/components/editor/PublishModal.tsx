@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { buildLitematic } from '@shared/mapart/litematic'
+import { packageMapart } from '@shared/mapart/bundle'
 import type { ProcessResult } from '@shared/mapart/process'
 import { api, currentUser } from '../../lib/api'
 import { useNotification } from '../../contexts/NotificationContext'
@@ -37,11 +37,11 @@ export default function PublishModal({ result, settings, onClose }: Props) {
     try {
       const png = await toPng(result.preview, result.width, result.height)
       const author = currentUser()?.username ?? '访客'
-      const bytes = buildLitematic(result.indices, result.width, result.height, author, title || '地毯地图画')
-      const file = new Uint8Array(bytes)
+      const packed = packageMapart(result.indices, result.width, result.height, author, title || '地毯地图画')
+      const file = new Uint8Array(packed.bytes)
       const form = new FormData()
       form.append('preview', png, 'preview.png')
-      form.append('litematic', new Blob([file]), 'map.litematic')
+      form.append('litematic', new Blob([file], { type: packed.zip ? 'application/zip' : 'application/octet-stream' }), packed.filename)
       form.append('title', title)
       form.append('description', description)
       form.append('tags', tags)

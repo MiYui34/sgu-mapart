@@ -73,7 +73,9 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 export function adjustImage(src: Uint8ClampedArray, options: AdjustOptions): Uint8ClampedArray {
   const dst = new Uint8ClampedArray(src.length)
   const [br, bg, bb] = parseHex(options.background)
-  const bright = ((options.brightness - 100) / 100) * 255
+  const gain = options.brightness >= 100
+    ? options.brightness / 100
+    : (options.brightness / 100) ** 0.55
   const contrast = options.contrast / 100
   const saturation = options.saturation / 100
   const hueShift = options.hue / 360
@@ -85,9 +87,9 @@ export function adjustImage(src: Uint8ClampedArray, options: AdjustOptions): Uin
     let g = src[i + 1] * alpha + bg * (1 - alpha)
     let b = src[i + 2] * alpha + bb * (1 - alpha)
 
-    r += bright
-    g += bright
-    b += bright
+    r *= gain
+    g *= gain
+    b *= gain
 
     r = (r - 128) * contrast + 128
     g = (g - 128) * contrast + 128

@@ -83,6 +83,18 @@ export default function CompareView({ source, map, width, height }: Props) {
     })
   }, [width, height])
 
+  useEffect(() => {
+    const canvas = viewRef.current
+    if (!canvas) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const factor = event.deltaY > 0 ? 0.9 : 1.1
+      setZoom((current) => Math.min(24, Math.max(0.2, current * factor)))
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
+  }, [])
+
   return (
     <div className="compare-wrap">
       <span className="compare-label" style={{ left: 12 }}>原图</span>
@@ -122,11 +134,6 @@ export default function CompareView({ source, map, width, height }: Props) {
           }
         }}
         onPointerUp={() => { drag.current = null }}
-        onWheel={(event) => {
-          event.preventDefault()
-          const next = zoom * (event.deltaY > 0 ? 0.9 : 1.1)
-          setZoom(Math.min(24, Math.max(0.2, next)))
-        }}
       />
     </div>
   )
