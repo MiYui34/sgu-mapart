@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ALGORITHM_IDS, ALGORITHM_LABELS, type AlgorithmId } from '@shared/mapart/dither'
 import { packageMapart } from '@shared/mapart/bundle'
+import { packageStructureNbt } from '@shared/mapart/structureNbt'
 import { CARPETS, formatCarpetPack, MAP_SIZE, MAX_MAPS } from '@shared/mapart/palette'
 import { currentUser } from '../../lib/api'
 import { useEditorSession } from '../../contexts/EditorSession'
@@ -50,6 +51,20 @@ export default function EditorPage() {
     if (!result) return
     const user = currentUser()
     const packed = packageMapart(result.indices, result.width, result.height, user?.username ?? '访客', '地毯地图画')
+    const bytes = new Uint8Array(packed.bytes)
+    const blob = new Blob([bytes], { type: packed.zip ? 'application/zip' : 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = packed.filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadNbt = () => {
+    if (!result) return
+    const user = currentUser()
+    const packed = packageStructureNbt(result.indices, result.width, result.height, user?.username ?? '访客')
     const bytes = new Uint8Array(packed.bytes)
     const blob = new Blob([bytes], { type: packed.zip ? 'application/zip' : 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
@@ -130,7 +145,7 @@ export default function EditorPage() {
           <button className="btn" type="button" disabled={!image || !crop || busy} onClick={generate} style={{ width: '100%' }}>
             {busy ? '生成中' : '生成地图画'}
           </button>
-          {result && builtFrom !== fingerprint && <p className="muted">参数已改，需要重新生成</p>}
+          {image && crop && builtFrom !== fingerprint && <p className="muted">{busy ? '正在生成预览' : '参数已改，即将生成预览'}</p>}
           <div className="materials">
             {result && CARPETS.map((carpet) => result.counts[carpet.id] > 0 ? (
               <span key={carpet.block} style={{ display: 'contents' }}>
@@ -141,6 +156,7 @@ export default function EditorPage() {
             ) : null)}
           </div>
           <button className="btn" type="button" disabled={!result} onClick={download}>{mapsX * mapsY > 1 ? '下载 .zip' : '下载 .litematic'}</button>
+          <button className="btn secondary" type="button" disabled={!result} onClick={downloadNbt}>下载 NBT</button>
           <button className="btn secondary" type="button" disabled={!result || builtFrom !== fingerprint} onClick={() => {
             if (!localStorage.getItem('jwt_token')) {
               navigate('/login')
@@ -159,8 +175,8 @@ export default function EditorPage() {
             ))}
             {selected !== null && <span className="muted">正在看第 {selected + 1} 张</span>}
           </div>
-          {!image || !crop ? <p className="muted">上传图片，调整参数后点击生成地图画。拖动底图，滚轮缩放，网格按 128 格对齐。</p> : null}
-          {image && crop && !shown && stage !== 'crop' ? <p className="muted">点击生成地图画后，可在这里查看结果。</p> : null}
+          {!image || !crop ? <p className="muted">上传图片后会按当前参数生成预览。拖动底图，滚轮缩放，网格按 128 格对齐。</p> : null}
+          {image && crop && !shown && stage !== 'crop' ? <p className="muted">正在生成预览。</p> : null}
           {image && crop && stage === 'crop' && (
             <CropStage image={image} mapsX={mapsX} mapsY={mapsY} crop={crop} selected={selected} onCrop={setCrop} onSelect={setSelected} />
           )}

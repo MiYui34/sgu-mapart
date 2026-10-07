@@ -80,6 +80,7 @@ export function EditorSessionProvider({ children }: { children: ReactNode }) {
   const [result, setResult] = useState<ProcessResult | null>(null)
   const [builtFrom, setBuiltFrom] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const runId = useRef(0)
 
   const onFile = (file: File | undefined) => {
     if (!file) return
@@ -153,8 +154,9 @@ export function EditorSessionProvider({ children }: { children: ReactNode }) {
     ].join('|')
   }, [image, crop, mapsX, mapsY, brightness, contrast, saturation, hue, gamma, background, resize, distance, algorithm, ditherStrength])
 
-  const generate = () => {
-    if (!image || !crop || busy) return
+  const generate = (options?: { auto?: boolean }) => {
+    if (!image || !crop) return
+    const id = ++runId.current
     const sw = Math.max(1, Math.round(crop.w))
     const sh = Math.max(1, Math.round(crop.h))
     const scale = Math.min(1, 4096 / Math.max(sw, sh))
@@ -187,16 +189,27 @@ export function EditorSessionProvider({ children }: { children: ReactNode }) {
     setBusy(true)
     window.setTimeout(() => {
       try {
-        setResult(processImage(request))
+        const next = processImage(request)
+        if (runId.current !== id) return
+        setResult(next)
         setBuiltFrom(stamp)
-        setStage((current) => current === 'crop' ? 'map' : current)
+        if (!options?.auto) setStage((current) => current === 'crop' ? 'map' : current)
       } catch {
-        notify('生成失败', 'error')
+        if (runId.current === id) notify('生成失败', 'error')
       } finally {
-        setBusy(false)
+        if (runId.current === id) setBusy(false)
       }
     }, 0)
   }
+
+  const generateRef = useRef(generate)
+  generateRef.current = generate
+
+  useEffect(() => {
+    if (!image || !crop || !fingerprint || fingerprint === builtFrom) return
+    const timer = window.setTimeout(() => generateRef.current({ auto: true }), 280)
+    return () => window.clearTimeout(timer)
+  }, [image, crop, fingerprint, builtFrom])
 
   const value: EditorSessionValue = {
     image,

@@ -12,7 +12,7 @@ const SECTIONS: Array<{ title: string; body?: string; items?: string[] }> = [
   },
   {
     title: '处理顺序',
-    body: '点击生成地图画后，按固定顺序处理：先把裁剪区域缩放到目标格数，再依次做亮度、对比度、饱和度、色相、伽马，最后按色板量化。改参数不会自动重算，需要再点一次生成。',
+    body: '上传图片后按当前参数生成预览。之后每改一次亮度、对比度、饱和度、色相、伽马、缩放、色差、算法、抖动、地图张数或裁剪，都会重新生成预览。处理顺序不变：先把裁剪区域缩放到目标格数，再依次做亮度、对比度、饱和度、色相、伽马，最后按色板量化。',
   },
   {
     title: '亮度',
@@ -79,6 +79,14 @@ const SECTIONS: Array<{ title: string; body?: string; items?: string[] }> = [
     body: '生成后列出每种地毯的格数，并换成盒和组。1 组是 64 个，1 盒是 27 组，也就是 1728 个。',
   },
   {
+    title: '导出',
+    items: [
+      '下载 .litematic 得到投影。超过 1 张时会按 128 格切开，打包成 zip。',
+      '下载 NBT 得到结构文件，文件名是 地图画_x_y.nbt。超过 1 张时同样打成 zip。',
+      '精简页可以打开这种 zip，只保留地毯范围，并按方向把相邻两张拼成一张。',
+    ],
+  },
+  {
     title: '预览',
     items: [
       '地图：地毯本身的颜色，按最近邻放大。放进游戏后，手里的地图会比这张预览暗一档。',
@@ -94,7 +102,7 @@ export default function GuidePage() {
       <div className="guide">
         <article className="glass-panel">
           <h2>参数说明</h2>
-          <p>这些参数都在做图页里。上传图片并调整后，点击生成地图画才会出结果。作品只使用地毯，适用于 Minecraft 26.1 及以上。</p>
+          <p>这些参数都在做图页里。上传图片后会生成预览，之后每次改参数都会再生成一次。作品只使用地毯，适用于 Minecraft 26.1 及以上。</p>
         </article>
         {SECTIONS.map((section) => (
           <article key={section.title} className="glass-panel">

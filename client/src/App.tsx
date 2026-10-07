@@ -6,6 +6,7 @@ import RegisterForm from './components/auth/RegisterForm'
 import InvitationManager from './components/admin/InvitationManager'
 import EditorPage from './components/editor/EditorPage'
 import GuidePage from './components/guide/GuidePage'
+import NbtPage from './components/nbt/NbtPage'
 import MarketPage from './components/market/MarketPage'
 import WorkDetail from './components/market/WorkDetail'
 import { Footer } from './components/layout/Navbar'
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/register" element={<AuthScreen><RegisterForm /></AuthScreen>} />
           <Route path="/admin/invitations" element={<InvitationManager />} />
           <Route path="/" element={<EditorPage />} />
+          <Route path="/nbt" element={<NbtPage />} />
           <Route path="/guide" element={<GuidePage />} />
           <Route path="/market" element={<MarketPage />} />
           <Route path="/market/:id" element={<WorkDetail />} />

@@ -29,6 +29,7 @@ export default function Navbar() {
       </Link>
       <nav className="nav-links">
         <Link to="/">做图</Link>
+        <Link to="/nbt">精简</Link>
         <Link to="/guide">说明</Link>
         <Link to="/market">市场</Link>
         {user?.role === 'admin' && (
